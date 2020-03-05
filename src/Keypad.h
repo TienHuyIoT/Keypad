@@ -101,15 +101,18 @@ public:
 
 private:
 	unsigned long startTime;
+	unsigned long startTime_custom;
 	char *keymap;
     byte *rowPins;
     byte *columnPins;
 	KeypadSize sizeKpd;
-	uint debounceTime;
+	uint debounceTime;	
 	uint holdTime;
+	uint scantime;
+	uint colid;
 	bool single_key;
 
-	void scanKeys();
+	bool scanKeys_custom();
 	bool updateList();
 	void nextKeyState(byte n, boolean button);
 	void transitionTo(byte n, KeyState nextState);

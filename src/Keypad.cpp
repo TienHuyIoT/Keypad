@@ -45,12 +45,24 @@ Keypad::Keypad(char *userKeymap, byte *row, byte *col, byte numRows, byte numCol
 	keypadEventListener = 0;
 
 	startTime = 0;
+	startTime_custom = 0;
+	colid = 0;
+	scantime = debounceTime / sizeKpd.columns;
 	single_key = false;
 }
 
 // Let the user define a keymap - assume the same row/column count as defined in constructor
 void Keypad::begin(char *userKeymap) {
     keymap = userKeymap;
+
+	for (byte r=0; r<sizeKpd.rows; r++) {
+		pin_mode(rowPins[r],INPUT_PULLUP);
+	}
+
+	for (byte c=0; c<sizeKpd.columns; c++) {
+		pin_mode(columnPins[c],OUTPUT);
+		pin_write(columnPins[c],HIGH);
+	}
 }
 
 // Returns a single key only. Retained for backwards compatibility.
@@ -68,35 +80,30 @@ char Keypad::getKey() {
 // Populate the key list.
 bool Keypad::getKeys() {
 	bool keyActivity = false;
-
-	// Limit how often the keypad is scanned. This makes the loop() run 10 times as fast.
-	if ( (millis()-startTime)>debounceTime ) {
-		scanKeys();
+	
+	if ( scanKeys_custom() ) {
 		keyActivity = updateList();
-		startTime = millis();
 	}
 
 	return keyActivity;
 }
 
-// Private : Hardware scan
-void Keypad::scanKeys() {
-	// Re-intialize the row pins. Allows sharing these pins with other hardware.
-	for (byte r=0; r<sizeKpd.rows; r++) {
-		pin_mode(rowPins[r],INPUT_PULLUP);
-	}
-
-	// bitMap stores ALL the keys that are being pressed.
-	for (byte c=0; c<sizeKpd.columns; c++) {
-		pin_mode(columnPins[c],OUTPUT);
-		pin_write(columnPins[c], LOW);	// Begin column pulse output.
+bool Keypad::scanKeys_custom() {	
+	bool scanActivity = false;
+    if ( (millis()-startTime_custom)>scantime ) {
+		startTime_custom = millis();
+		// bitMap stores ALL the keys that are being pressed.
 		for (byte r=0; r<sizeKpd.rows; r++) {
-			bitWrite(bitMap[r], c, !pin_read(rowPins[r]));  // keypress is active low so invert to high.
+			bitWrite(bitMap[r], colid, !pin_read(rowPins[r]));  // keypress is active low so invert to high.
 		}
-		// Set pin to high impedance input. Effectively ends column pulse.
-		pin_write(columnPins[c],HIGH);
-		pin_mode(columnPins[c],INPUT);
+		pin_write(columnPins[colid],HIGH);
+		if(++colid == sizeKpd.columns) {
+			colid = 0;
+			scanActivity = true;
+		}
+		pin_write(columnPins[colid], LOW);	// Begin column pulse output.
 	}
+	return scanActivity;
 }
 
 // Manage the list without rearranging the keys. Returns true if any keys on the list changed state.
